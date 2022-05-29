@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "buddy",
+  "version": "${version}",
+  "name": "Amethyst Buddy",
+  "description": "Amethyst farming easy!",
+  "authors": [
+    "gurki",
+    "Kosmolot",
+    "docm77",
+    "ilmango"
+  ],
+  "contact": {
+    "homepage": "https://www.curseforge.com/minecraft/modpacks/amethyst-buddy",
+    "sources": "https://github.com/gurki/amethyst-buddy",
+    "issues": "https://github.com/gurki/amethyst-buddy/issues",
+    "email": "tbsgrdn+mthst@gmail.com",
+    "twitter": "https://twitter.com/tbsgrdn"
+  },
+  "license": "MIT",
+  "icon": "assets/buddy/icon.png",
+  "entrypoints": {
+    "main": [
+      "de.gurki.buddy.AmethystBuddy"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.12.12",
+    "fabric": "*",
+    "minecraft": ">=1.17"
+  }
+}

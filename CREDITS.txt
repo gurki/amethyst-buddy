@@ -1,0 +1,11 @@
+Tutorials By Kaupenjoe, MIT License
+https://github.com/Tutorials-By-Kaupenjoe/Fabric-Tutorial-1.18.1
+
+Geodesy by Kosmolot, MIT License
+https://github.com/kosma/geodesy-fabric
+
+Inspiration by Docm77
+https://www.youtube.com/watch?v=gfwtGJpW_0I&ab_channel=docm77
+
+Farm Design by ilmango
+https://www.youtube.com/watch?v=fY90xF3ug84&ab_channel=ilmango
