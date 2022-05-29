@@ -246,18 +246,24 @@ public class BuddyCommand
         for ( int dim = 0; dim < 3; dim++ )
         {
             // LOGGER.info( "dim: " + dim );
-            final int currDim = dim;
-
-            HashSet<BlockPos> unreachables = Clusters.mergeSmallClusters( clusts.get( currDim ), proj2Ds.get( currDim ) );
+            final int kDim = dim;
+            final HashSet<BlockPos> unreachables = Clusters.mergeSmallClusters( clusts.get( kDim ), proj2Ds.get( kDim ) );
+            final ArrayList<HashSet<BlockPos>> clusters = clusts.get( kDim );
             // LOGGER.info( unreachables );
 
-            clusts.get( dim ).forEach( cluster -> {
+            ArrayList<HashSet<BlockPos>> unreachableClusters = new ArrayList<>( clusts.get( kDim ).stream()
+                .filter( clust -> clust.stream().anyMatch( p -> unreachables.contains( p ) ))
+                .toList()
+            );
+
+            clusters.removeAll( unreachableClusters );
+            clusters.forEach( cluster -> {
                 // LOGGER.info( "size: " + cluster.size() );
                 final Clusters.Validity validity = Clusters.validate( cluster );
-                cluster.forEach( p -> world.setBlockState( Utility.unpack( p, currDim, offs[ currDim ] ), states.get( validity ) ) );
+                cluster.forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), states.get( validity ) ) );
             });
 
-            unreachables.forEach( p -> world.setBlockState( Utility.unpack( p, currDim, offs[ currDim ] ), cryingObsidian ));
+            unreachables.forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), cryingObsidian ));
         }
 
         if ( mode < 6 ) {
@@ -273,7 +279,7 @@ public class BuddyCommand
         {
             final int kDim = dim;
 
-            for ( HashSet<BlockPos> clust : clusts.get( dim ) )
+            for ( HashSet<BlockPos> clust : clusts.get( kDim ) )
             {
                 ArrayList<HashSet<BlockPos>> comps = new ArrayList<>();
 
@@ -284,11 +290,14 @@ public class BuddyCommand
 
                 if ( Clusters.validate( clust ) != Clusters.Validity.TooLarge ) {
                     clustC.add( clust );
-                    LOGGER.warn( "split: UNHANDLED CASE" );
+                    LOGGER.error( "split: UNHANDLED CASE" );
+                    //  FIXME: e.g. looong stair case with >12 blocks but no support
+                    //  either try to extend with extra block, or merge with another cluster
                     continue;
                 }
 
                 comps = Clusters.split( clust );
+                comps.sort( ( a, b ) -> a.size() - b.size() );
 
                 for ( var i = 0; i < comps.size(); i++ ) {
                     BlockState state = fillerStates.get( i % fillerStates.size() );

@@ -132,13 +132,18 @@ public class UnionFind
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public void mergeIsolated( Integer rep )    //  vertex representing the component
+    public void mergeIsolated( Integer rep, HashSet<Integer> ignoreReps )    //  vertex representing the component
     {
         Integer cA = ids.get( rep );
         HashSet<Integer> comp = edges.get( cA );
+        HashSet<Integer> ignoreComps = new HashSet<>( ignoreReps.stream().map( ids::get ).toList() );
 
         for ( Integer cB : comp )
         {
+            if ( ignoreComps.contains( cB ) ) {
+                continue;
+            }
+
             if ( edges.get( cB ).size() > 1 ) {
                 continue;
             }
@@ -209,11 +214,13 @@ public class UnionFind
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public Iterable<Integer> iterateAdjacent( Integer cid )
+    public Iterable<Integer> iterateAdjacent( Integer cid, HashSet<Integer> ignoreReps )
     {
         if ( cid < 0 || cid >= components.size() ) {
             return null;
         }
+
+        HashSet<Integer> ignoreComps = new HashSet<>( ignoreReps.stream().map( ids::get ).toList() );
 
         return () -> new AbstractIterator<Integer>()
         {
@@ -225,7 +232,9 @@ public class UnionFind
                 {
                     for ( Integer nid : graph.edges.get( vid ) )
                     {
-                        if ( cid == ids.get( nid ) || nids.contains( nid ) ) {
+                        Integer ncid = ids.get( nid );
+
+                        if ( cid == ncid || nids.contains( nid ) || ignoreComps.contains( ncid ) ) {
                             continue;
                         }
 

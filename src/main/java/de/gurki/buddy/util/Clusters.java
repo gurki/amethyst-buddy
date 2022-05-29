@@ -211,14 +211,41 @@ public class Clusters
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static ArrayList<Direction> findConnectedSupports( HashSet<BlockPos> cluster, BlockPos pos )
+    public static HashSet<BlockPos> findConnectedSupports( HashSet<BlockPos> cluster, BlockPos pos )
     {
-        ArrayList<Direction> res = new ArrayList<>();
+        HashSet<BlockPos> res = new HashSet<>();
+        res.add( pos );
 
-        for ( Direction dir : List.of( Direction.UP, Direction.EAST, Direction.DOWN, Direction.WEST ) ) {
-            if( cluster.contains( pos.offset( dir, 1 ) ) && cluster.contains( pos.offset( dir, 2 ) ) ) {
-                res.add( dir );
+        final BlockPos u = pos.offset( Direction.UP );
+        final BlockPos d = pos.offset( Direction.DOWN );
+
+        if ( cluster.contains( u ) && cluster.contains( d ) ) {
+            res.add( u );
+            res.add( d );
+            return res;
+        }
+
+        final BlockPos e = pos.offset( Direction.EAST );
+        final BlockPos w = pos.offset( Direction.WEST );
+
+        if ( cluster.contains( e ) && cluster.contains( w ) ) {
+            res.add( e );
+            res.add( w );
+            return res;
+        }
+
+        for ( Direction dir : List.of( Direction.UP, Direction.EAST, Direction.DOWN, Direction.WEST ) )
+        {
+            final BlockPos n1 = pos.offset( dir );
+            final BlockPos n2 = pos.offset( dir, 2 );
+
+            if ( ! cluster.contains( n1 ) || ! cluster.contains( n2 ) ) {
+                continue;
             }
+
+            res.add( n1 );
+            res.add( n2 );
+            return res;
         }
 
         return res;
@@ -240,7 +267,7 @@ public class Clusters
 
         for ( BlockPos pos : cluster )
         {
-            hasSupport = ! findConnectedSupports( cluster, pos ).isEmpty();
+            hasSupport = ( findConnectedSupports( cluster, pos ).size() == 3 );
 
             if ( hasSupport ) {
                 break;
@@ -259,31 +286,25 @@ public class Clusters
     public static HashSet<Integer> findClosestSupport( HashSet<BlockPos> cluster, Graph graph, int startId )
     {
         Iterator<Integer> iter = graph.iterateBFS( startId ).iterator();
-        ArrayList<Direction> dirs = null;
+        HashSet<BlockPos> support = null;
         Integer vid = -1;
 
         while ( iter.hasNext() )
         {
             vid = iter.next();
-            dirs = findConnectedSupports( cluster, graph.verts[ vid ] );
+            support = findConnectedSupports( cluster, graph.verts[ vid ] );
 
-            if ( ! dirs.isEmpty() ) {
+            if ( support.size() == 3 ) {
                 break;
             }
         }
 
-        if ( dirs == null || dirs.isEmpty() ) {
+        if ( support == null || support.isEmpty() ) {
             return new HashSet<Integer>();
         }
 
-        Direction dir = dirs.get( 0 );
-        BlockPos pos = graph.verts[ vid ];
-        HashSet<Integer> support = new HashSet<>();
-
-        support.add( graph.ids.get( pos ) );
-        support.add( graph.ids.get( pos.offset( dir ) ));
-        support.add( graph.ids.get( pos.offset( dir, 2 ) ));
-        return support;
+        HashSet<Integer> supportIds = new HashSet<>( support.stream().map( p -> graph.ids.get( p ) ).toList() );
+        return supportIds;
     }
 
 
@@ -293,7 +314,6 @@ public class Clusters
         LOGGER.info( "--- split ---" );
 
         //  base case if cluster is already small enough
-
         if ( cluster.size() <= 12 ) {
             ArrayList<HashSet<BlockPos>> groups = new ArrayList<>();
             groups.add( cluster );
@@ -301,17 +321,21 @@ public class Clusters
             return groups;
         }
 
+
+        //  init split with farthest stable supports
+
         int targetCount = (int)Math.ceil( cluster.size() / 12.0 );
         int targetSize = (int)Math.ceil( cluster.size() / (double)targetCount );
 
         Graph graph = new Graph( cluster );
         UnionFind uf = new UnionFind( graph );
 
-        Integer[] stableIds = graph.getStablePair( uf.components.get( 0 ) );
+        Integer[] stableIds = graph.getStablePair( uf.components.get( 0 ) );    //  graph vertex ids; single cluster at init
         HashSet<Integer> clustA = findClosestSupport( cluster, graph, stableIds[ 0 ] );
         HashSet<Integer> clustB = findClosestSupport( cluster, graph, stableIds[ 1 ] );
         Integer repA = clustA.iterator().next();
         Integer repB = clustB.iterator().next();
+        HashSet<Integer> reps = new HashSet<>( List.of( repA, repB ) );
 
         LOGGER.info( "processing " + repA + " / " + repB );
 
@@ -321,9 +345,8 @@ public class Clusters
         // LOGGER.info( uf.edges );
 
         //  merge detached components
-
-        uf.mergeIsolated( repA );
-        uf.mergeIsolated( repB );
+        uf.mergeIsolated( repA, reps );
+        uf.mergeIsolated( repB, reps );
         LOGGER.info( uf.components );
         // LOGGER.info( uf.edges );
 
@@ -331,14 +354,18 @@ public class Clusters
         next.add( repA );
         next.add( repB );
 
+
+        //  expand clusters
+
+        final int kSanityLimit = 24;
         int sanityExit = 0;
 
-        while ( ! next.isEmpty() && sanityExit++ < 32 )
+        while ( ! next.isEmpty() && sanityExit++ < kSanityLimit )
         {
             //  expand smallest cluster
             Integer rep = next.stream().sorted( ( a, b ) -> uf.find( a ).size() - uf.find( b ).size() ).findFirst().get();
             Integer cid = uf.ids.get( rep );
-            Iterator<Integer> iter = uf.iterateAdjacent( cid ).iterator();
+            Iterator<Integer> iter = uf.iterateAdjacent( cid, reps ).iterator();
 
             // List<Integer> adjs = new ArrayList<>();
             // uf.iterateAdjacent( cid ).forEach( adjs::add );
@@ -371,7 +398,7 @@ public class Clusters
                     break;
                 }
 
-                uf.mergeIsolated( rep );
+                uf.mergeIsolated( rep, reps );
                 LOGGER.info( uf.components );
                 // LOGGER.info( uf.edges );
                 // LOGGER.info( prevIds );
@@ -398,20 +425,19 @@ public class Clusters
             }
         }
 
+        if ( sanityExit >= kSanityLimit ) {
+            LOGGER.error( "something went wrong" );
+        }
+
 
         //  build block clusters
 
         final ArrayList<HashSet<BlockPos>> split = new ArrayList<>();
 
-        for ( HashSet<Integer> comp : uf.components )
-        {
-            HashSet<BlockPos> poss = new HashSet<>();
-
-            for ( Integer vid : comp ) {
-                poss.add( graph.verts[ vid ] );
-            }
-
-            split.add( poss );
+        for ( HashSet<Integer> comp : List.of( uf.find( repA ), uf.find( repB ) ) ) {
+            split.add( new HashSet<BlockPos>(
+                comp.stream().map( v -> graph.verts[ v ] ).toList() )
+            );
         }
 
 
