@@ -1,5 +1,7 @@
 package de.gurki.buddy.util;
 
+import net.minecraft.util.math.BlockPos;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -28,6 +30,22 @@ public class UnionFind
         this.edges = new HashMap<>();
 
         initComponents();
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public void setComponents( ArrayList<HashSet<BlockPos>> blockComps )
+    {
+        ids.clear();
+
+        for ( int cid = 0; cid < blockComps.size(); cid++ )
+        {
+            for ( BlockPos pos : blockComps.get( cid ) ) {
+                ids.put( graph.ids.get( pos ), cid );
+            }
+        }
+
+        updateComponents();
     }
 
 
@@ -210,6 +228,45 @@ public class UnionFind
 
         components = newComps;
         updateEdges();
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public ArrayList<Integer> getGroup( Integer cid ) {
+        ArrayList<Integer> group = new ArrayList<>();
+        iterateBFS( cid ).forEach( group::add );
+        return group;
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public Iterable<Integer> iterateBFS( Integer cid )
+    {
+        if ( cid < 0 || cid >= components.size() ) {
+            return null;
+        }
+
+        return () -> new AbstractIterator<Integer>()
+        {
+            private final Queue<Integer> next = new LinkedList<>();
+            private final HashSet<Integer> done = new HashSet<>();
+            {
+                this.next.add( cid );
+            }
+
+            @Override
+            protected Integer computeNext()
+            {
+                if ( this.next.isEmpty() ) {
+                    return (Integer)this.endOfData();
+                }
+
+                Integer currId = this.next.poll();
+                this.done.add( currId );
+                this.next.addAll( edges.get( currId ).stream().filter( i -> ! this.done.contains( i ) ).toList() );
+                return currId;
+            }
+        };
     }
 
 

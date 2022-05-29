@@ -1,6 +1,7 @@
 package de.gurki.buddy.command;
 
 import de.gurki.buddy.util.Graph;
+import de.gurki.buddy.util.UnionFind;
 
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.ArrayList;
 // import java.util.Collection;
 // import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -67,6 +69,8 @@ public class BuddyCommand
                 .then( CommandManager.literal( "validate" ).executes( context -> run( context, 4 ) ))
                 .then( CommandManager.literal( "merge" ).executes( context -> run( context, 5 ) ))
                 .then( CommandManager.literal( "split" ).executes( context -> run( context, 6 ) ))
+                .then( CommandManager.literal( "validateSplit" ).executes( context -> run( context, 7 ) ))
+                .then( CommandManager.literal( "colorize" ).executes( context -> run( context, 8 ) ))
                 .then( CommandManager.literal( "explore" ).executes( context -> run( context, -1 ) ))
         );
     }
@@ -129,8 +133,8 @@ public class BuddyCommand
     {
         final BlockState obsidian = Blocks.OBSIDIAN.getDefaultState();
         final BlockState yellowConcrete = Blocks.YELLOW_CONCRETE.getDefaultState();
-        final BlockState orangeConcrete = Blocks.ORANGE_CONCRETE.getDefaultState();
-        final BlockState pinkConcrete = Blocks.PINK_CONCRETE.getDefaultState();
+        // final BlockState orangeConcrete = Blocks.ORANGE_CONCRETE.getDefaultState();
+        // final BlockState pinkConcrete = Blocks.PINK_CONCRETE.getDefaultState();
 
         //  clear out area
 
@@ -193,25 +197,17 @@ public class BuddyCommand
 
         LOGGER.info( "computing clusters..." );
 
-        List<ArrayList<HashSet<BlockPos>>> clusts;
+        List<ArrayList<HashSet<BlockPos>>> clustersXYZ;
 
         switch ( mode ) {
-            case 1: clusts = conts.stream().map( Clusters::findClusters ).toList(); break;
-            case 2: clusts = IntStream.range( 0, 3 ).mapToObj( dim -> Clusters.combineClusters( conts.get( dim ), proj2Ds.get( dim ), true ) ).toList(); break;
-            default: clusts = IntStream.range( 0, 3 ).mapToObj( dim -> Clusters.combineClusters( conts.get( dim ), proj2Ds.get( dim ), false ) ).toList(); break;
+            case 1: clustersXYZ = conts.stream().map( Clusters::findClusters ).toList(); break;
+            case 2: clustersXYZ = IntStream.range( 0, 3 ).mapToObj( dim -> Clusters.combineClusters( conts.get( dim ), proj2Ds.get( dim ), true ) ).toList(); break;
+            default: clustersXYZ = IntStream.range( 0, 3 ).mapToObj( dim -> Clusters.combineClusters( conts.get( dim ), proj2Ds.get( dim ), false ) ).toList(); break;
         }
 
-        clusts.forEach( clust -> LOGGER.info( clust.size() ) );
+        // clustersXYZ.forEach( clust -> LOGGER.info( clust.size() ) );
 
-        List<BlockState> fillerStates = Constants.kFillerBlocks.stream().map( Block::getDefaultState ).toList();
-
-        for ( int dim = 0; dim < 3; dim++ ) {
-            final int currDim = dim;
-            for ( var i = 0; i < clusts.get( dim ).size(); i++ ) {
-                BlockState state = fillerStates.get( i % fillerStates.size() );
-                clusts.get( dim ).get( i ).forEach( p -> world.setBlockState( Utility.unpack( p, currDim, offs[ currDim ] ), state ) );
-            }
-        }
+        Utility.drawClustersXYZ( clustersXYZ, offs, world );
 
         if ( mode >= 0 && mode < 4 ) {
             return 1;
@@ -220,19 +216,7 @@ public class BuddyCommand
 
         //  validate clusters
 
-        Map<Clusters.Validity, BlockState> states = new HashMap<>();
-        states.put( Clusters.Validity.Valid, Registry.BLOCK.get( new Identifier( "minecraft", "lime_concrete" ) ).getDefaultState() );
-        states.put( Clusters.Validity.TooSmall, Registry.BLOCK.get( new Identifier( "minecraft", "pink_concrete" ) ).getDefaultState() );
-        states.put( Clusters.Validity.TooLarge, Registry.BLOCK.get( new Identifier( "minecraft", "magenta_concrete" ) ).getDefaultState() );
-        states.put( Clusters.Validity.NoStraight, Registry.BLOCK.get( new Identifier( "minecraft", "purple_concrete" ) ).getDefaultState() );
-
-        for ( int dim = 0; dim < 3; dim++ ) {
-            final int currDim = dim;
-            clusts.get( dim ).forEach( cluster -> {
-                final Clusters.Validity validity = Clusters.validate( cluster );
-                cluster.forEach( p -> world.setBlockState( Utility.unpack( p, currDim, offs[ currDim ] ), states.get( validity ) ) );
-            });
-        }
+        Utility.drawValidity( clustersXYZ, offs, world );
 
         if ( mode >= 0 && mode < 5 ) {
             return 1;
@@ -245,26 +229,21 @@ public class BuddyCommand
 
         for ( int dim = 0; dim < 3; dim++ )
         {
-            // LOGGER.info( "dim: " + dim );
             final int kDim = dim;
-            final HashSet<BlockPos> unreachables = Clusters.mergeSmallClusters( clusts.get( kDim ), proj2Ds.get( kDim ) );
-            final ArrayList<HashSet<BlockPos>> clusters = clusts.get( kDim );
-            // LOGGER.info( unreachables );
+            final HashSet<BlockPos> unreachables = Clusters.mergeSmallClusters( clustersXYZ.get( kDim ), proj2Ds.get( kDim ) );
+            final ArrayList<HashSet<BlockPos>> clusters = clustersXYZ.get( kDim );
 
-            ArrayList<HashSet<BlockPos>> unreachableClusters = new ArrayList<>( clusts.get( kDim ).stream()
+            //  remove unreachable clusters
+            ArrayList<HashSet<BlockPos>> unreachableClusters = new ArrayList<>( clustersXYZ.get( kDim ).stream()
                 .filter( clust -> clust.stream().anyMatch( p -> unreachables.contains( p ) ))
                 .toList()
             );
 
             clusters.removeAll( unreachableClusters );
-            clusters.forEach( cluster -> {
-                // LOGGER.info( "size: " + cluster.size() );
-                final Clusters.Validity validity = Clusters.validate( cluster );
-                cluster.forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), states.get( validity ) ) );
-            });
-
             unreachables.forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), cryingObsidian ));
         }
+
+        Utility.drawValidity( clustersXYZ, offs, world );
 
         if ( mode < 6 ) {
             return 1;
@@ -273,35 +252,131 @@ public class BuddyCommand
 
         //  split too large clusters
 
-        ArrayList<HashSet<BlockPos>> clustC = new ArrayList<>();
-
         for ( int dim = 0; dim < 3; dim++ )
         {
             final int kDim = dim;
+            ArrayList<HashSet<BlockPos>> validClusters = new ArrayList<>();
 
-            for ( HashSet<BlockPos> clust : clusts.get( kDim ) )
+            for ( HashSet<BlockPos> clust : clustersXYZ.get( kDim ) )
             {
-                ArrayList<HashSet<BlockPos>> comps = new ArrayList<>();
-
                 if ( Clusters.validate( clust ) == Clusters.Validity.Valid ) {
-                    clustC.add( clust );
+                    validClusters.add( clust );
                     continue;
                 }
 
                 if ( Clusters.validate( clust ) != Clusters.Validity.TooLarge ) {
-                    clustC.add( clust );
-                    LOGGER.error( "split: UNHANDLED CASE" );
-                    //  FIXME: e.g. looong stair case with >12 blocks but no support
+                    //  e.g. looong stair case with >12 blocks but no support
                     //  either try to extend with extra block, or merge with another cluster
+                    validClusters.add( clust );
+                    LOGGER.error( "split: UNHANDLED CASE" );
                     continue;
                 }
 
-                comps = Clusters.split( clust );
-                comps.sort( ( a, b ) -> a.size() - b.size() );
+                validClusters.addAll( Clusters.split( clust ) );
+                Utility.drawClusters( validClusters, offs, world, dim );
+            }
 
-                for ( var i = 0; i < comps.size(); i++ ) {
-                    BlockState state = fillerStates.get( i % fillerStates.size() );
-                    comps.get( i ).forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), state ) );
+            clustersXYZ.get( kDim ).clear();
+            clustersXYZ.get( kDim ).addAll( validClusters );
+        }
+
+        if ( mode < 7 ) {
+            return 1;
+        }
+
+        Utility.drawValidity( clustersXYZ, offs, world );
+
+        if ( mode < 8 ) {
+            return 1;
+        }
+
+        //  assign build block
+
+        BlockState slime = Blocks.SLIME_BLOCK.getDefaultState();
+        BlockState honey = Blocks.HONEY_BLOCK.getDefaultState();
+        BlockState redConcrete = Blocks.RED_CONCRETE.getDefaultState();
+
+        for ( int dim = 0; dim < 3; dim++ )
+        {
+            final int kDim = dim;
+            HashSet<BlockPos> validBlocks = new HashSet<>();
+            ArrayList<HashSet<BlockPos>> clusters = clustersXYZ.get( kDim );
+            clusters.forEach( cluster -> cluster.forEach( validBlocks::add ) );
+
+            Graph graph = new Graph( validBlocks );
+            UnionFind uf = new UnionFind( graph );
+            uf.setComponents( clusters );
+
+            HashMap<Integer, Integer> colors = new HashMap<>();
+
+            //  traverse clusters and cluster groups to greedily assign colors
+
+            for ( int cid = 0; cid < uf.components.size(); cid++ )
+            {
+                if ( colors.containsKey( cid ) ) {
+                    continue;
+                }
+
+                ArrayList<Integer> group = uf.getGroup( cid );
+
+                for ( Integer gid : group )
+                {
+                    if ( colors.containsKey( gid ) ) {
+                        continue;
+                    }
+
+                    //  get colors of all neighbours
+
+                    HashSet<Integer> compCols = new HashSet<Integer>();
+
+                    for ( Integer nid : uf.edges.get( gid ) )
+                    {
+                        if ( ! colors.containsKey( nid ) ) {
+                            continue;
+                        }
+
+                        compCols.add( colors.get( nid ) );
+                    }
+
+                    if ( compCols.isEmpty() ) {
+                        colors.put( gid, 0 );
+                    } else if ( compCols.size() == 1 ) {
+                        Integer otherCol = compCols.iterator().next();
+                        Integer col = otherCol == 0 ? 1 : 0;
+                        colors.put( gid, col );
+                    } else {
+                        colors.put( gid, 2 );
+                        LOGGER.error( "INVALID COLORS" );
+                    }
+                }
+
+                //  swap colors to maximize 0-use
+
+                int[] counts = new int[ 3 ];
+                group.forEach( gid -> counts[ colors.get( gid ) ] += uf.components.get( gid ).size() );
+
+                if ( counts[ 0 ] >= counts[ 1 ] ) {
+                    continue;
+                }
+
+                group.forEach( gid -> {
+                    int newCol = ( colors.get( gid ) == 0 ) ? 1 : 0;
+                    colors.put( gid, newCol );
+                });
+            }
+
+            //  colorize
+
+            for ( Map.Entry<Integer, Integer> entry : colors.entrySet() )
+            {
+                Integer col = entry.getValue();
+                HashSet<Integer> comp = uf.components.get( entry.getKey() );
+
+                BlockState state = ( col == 0 ) ? slime : ( col == 1 ) ? honey : redConcrete;
+
+                for ( Integer vid : comp ) {
+                    BlockPos pos = graph.verts[ vid ];
+                    world.setBlockState( Utility.unpack( pos, kDim, offs[ kDim ] ), state );
                 }
             }
         }

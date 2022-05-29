@@ -22,13 +22,52 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
-
+import java.util.HashMap;
 
 
 public class Utility
 {
     public static final String MOD_ID = "de.gurki.buddy";
 	public static final Logger LOGGER = LogManager.getLogger( MOD_ID );
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public static void drawClustersXYZ( List<ArrayList<HashSet<BlockPos>>> clustersXYZ, int[] offs, World world ) {
+        for ( int dim = 0; dim < 3; dim++ ) {
+            drawClusters( clustersXYZ.get( dim ), offs, world, dim );
+        }
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public static void drawClusters( ArrayList<HashSet<BlockPos>> clusters, int[] offs, World world, int dim )
+    {
+        List<BlockState> fillerStates = Constants.kFillerBlocks.stream().map( Block::getDefaultState ).toList();
+
+        for ( var i = 0; i < clusters.size(); i++ ) {
+            BlockState state = fillerStates.get( i % fillerStates.size() );
+            clusters.get( i ).forEach( p -> world.setBlockState( Utility.unpack( p, dim, offs[ dim ] ), state ) );
+        }
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public static void drawValidity( List<ArrayList<HashSet<BlockPos>>> clustersXYZ, int[] offs, World world )
+    {
+        HashMap<Clusters.Validity, BlockState> states = new HashMap<>();
+        states.put( Clusters.Validity.Valid, Blocks.LIME_CONCRETE.getDefaultState() );
+        states.put( Clusters.Validity.TooSmall, Blocks.PINK_CONCRETE.getDefaultState() );
+        states.put( Clusters.Validity.TooLarge, Blocks.MAGENTA_CONCRETE.getDefaultState() );
+        states.put( Clusters.Validity.NoStraight, Blocks.PURPLE_CONCRETE.getDefaultState() );
+
+        for ( int dim = 0; dim < 3; dim++ ) {
+            final int currDim = dim;
+            clustersXYZ.get( dim ).forEach( cluster -> {
+                final Clusters.Validity validity = Clusters.validate( cluster );
+                cluster.forEach( p -> world.setBlockState( Utility.unpack( p, currDim, offs[ currDim ] ), states.get( validity ) ) );
+            });
+        }
+    }
 
 
     ////////////////////////////////////////////////////////////////////////////////
