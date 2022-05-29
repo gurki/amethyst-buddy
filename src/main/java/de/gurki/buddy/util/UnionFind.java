@@ -132,18 +132,13 @@ public class UnionFind
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public void mergeIsolated( Integer rep, HashSet<Integer> ignoreReps )    //  vertex representing the component
+    public void mergeIsolated( Integer rep )    //  vertex representing the component
     {
         Integer cA = ids.get( rep );
         HashSet<Integer> comp = edges.get( cA );
-        HashSet<Integer> ignoreComps = new HashSet<Integer>( ignoreReps.stream().map( ids::get ).toList() );
 
         for ( Integer cB : comp )
         {
-            if ( ignoreComps.contains( cB ) ) {
-                continue;
-            }
-
             if ( edges.get( cB ).size() > 1 ) {
                 continue;
             }

@@ -269,28 +269,32 @@ public class BuddyCommand
 
         ArrayList<HashSet<BlockPos>> clustC = new ArrayList<>();
 
-        for ( HashSet<BlockPos> clust : clusts.get( 0 ) )
+        for ( int dim = 0; dim < 3; dim++ )
         {
-            ArrayList<HashSet<BlockPos>> comps = new ArrayList<>();
+            final int kDim = dim;
 
-            if ( Clusters.validate( clust ) == Clusters.Validity.Valid ) {
-                clustC.add( clust );
-                continue;
+            for ( HashSet<BlockPos> clust : clusts.get( dim ) )
+            {
+                ArrayList<HashSet<BlockPos>> comps = new ArrayList<>();
+
+                if ( Clusters.validate( clust ) == Clusters.Validity.Valid ) {
+                    clustC.add( clust );
+                    continue;
+                }
+
+                if ( Clusters.validate( clust ) != Clusters.Validity.TooLarge ) {
+                    clustC.add( clust );
+                    LOGGER.warn( "split: UNHANDLED CASE" );
+                    continue;
+                }
+
+                comps = Clusters.split( clust );
+
+                for ( var i = 0; i < comps.size(); i++ ) {
+                    BlockState state = fillerStates.get( i % fillerStates.size() );
+                    comps.get( i ).forEach( p -> world.setBlockState( Utility.unpack( p, kDim, offs[ kDim ] ), state ) );
+                }
             }
-
-            if ( Clusters.validate( clust ) != Clusters.Validity.TooLarge ) {
-                clustC.add( clust );
-                LOGGER.warn( "split: UNHANDLED CASE" );
-                continue;
-            }
-
-            if ( clust.size() < 30 ) continue;
-
-            comps = Clusters.split( clust );
-
-            if ( comps.size() >= 1 ) comps.get( 0 ).forEach( p -> world.setBlockState( Utility.unpack( p, 0, offs[ 0 ] ), yellowConcrete ));
-            if ( comps.size() >= 2 ) comps.get( 1 ).forEach( p -> world.setBlockState( Utility.unpack( p, 0, offs[ 0 ] ), orangeConcrete ));
-            if ( comps.size() >= 3 ) comps.get( 2 ).forEach( p -> world.setBlockState( Utility.unpack( p, 0, offs[ 0 ] ), pinkConcrete ));
         }
 
         return 1;

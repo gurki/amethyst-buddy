@@ -14,15 +14,15 @@ public class Constants
     public static final int kDepth = 12;
 
     public static final List<Block> kFillerBlocks = List.of(
+        Blocks.YELLOW_CONCRETE,
+        Blocks.ORANGE_CONCRETE,
+        Blocks.PINK_CONCRETE,
+        Blocks.MAGENTA_CONCRETE,
+        Blocks.LIME_CONCRETE,
         Blocks.RED_CONCRETE,
+        Blocks.CYAN_CONCRETE,
         Blocks.GREEN_CONCRETE,
         Blocks.BLUE_CONCRETE,
-        Blocks.YELLOW_CONCRETE,
-        Blocks.LIME_CONCRETE,
-        Blocks.CYAN_CONCRETE,
-        Blocks.ORANGE_CONCRETE,
-        Blocks.MAGENTA_CONCRETE,
-        Blocks.PINK_CONCRETE,
         Blocks.PURPLE_CONCRETE,
         Blocks.LIGHT_BLUE_CONCRETE,
         Blocks.LIGHT_GRAY_CONCRETE,

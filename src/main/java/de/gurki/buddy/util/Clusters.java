@@ -306,141 +306,127 @@ public class Clusters
 
         Graph graph = new Graph( cluster );
         UnionFind uf = new UnionFind( graph );
-        HashSet<Integer> doneComps = new HashSet<Integer>();
 
-        //  start by finding supports
-        boolean unfinished = true;
+        Integer[] stableIds = graph.getStablePair( uf.components.get( 0 ) );
+        HashSet<Integer> clustA = findClosestSupport( cluster, graph, stableIds[ 0 ] );
+        HashSet<Integer> clustB = findClosestSupport( cluster, graph, stableIds[ 1 ] );
+        Integer repA = clustA.iterator().next();
+        Integer repB = clustB.iterator().next();
 
-        //  split largest cluster, two pieces at a time
-        while ( unfinished )
+        LOGGER.info( "processing " + repA + " / " + repB );
+
+        uf.extract( clustA );
+        uf.extract( clustB );
+        LOGGER.info( uf.components );
+        // LOGGER.info( uf.edges );
+
+        //  merge detached components
+
+        uf.mergeIsolated( repA );
+        uf.mergeIsolated( repB );
+        LOGGER.info( uf.components );
+        // LOGGER.info( uf.edges );
+
+        HashSet<Integer> next = new HashSet<>();
+        next.add( repA );
+        next.add( repB );
+
+        int sanityExit = 0;
+
+        while ( ! next.isEmpty() && sanityExit++ < 32 )
         {
-            int maxCid = -1;
+            //  expand smallest cluster
+            Integer rep = next.stream().sorted( ( a, b ) -> uf.find( a ).size() - uf.find( b ).size() ).findFirst().get();
+            Integer cid = uf.ids.get( rep );
+            Iterator<Integer> iter = uf.iterateAdjacent( cid ).iterator();
 
-            for ( int cid = 0; cid < uf.components.size(); cid++ ) {
-                if ( uf.components.get( cid ).size() > 12 ) {
-                    maxCid = cid;
+            // List<Integer> adjs = new ArrayList<>();
+            // uf.iterateAdjacent( cid ).forEach( adjs::add );
+            // LOGGER.info( adjs );
+            LOGGER.info( "process " + rep );
+
+            while ( iter.hasNext() && next.contains( rep ) )
+            {
+                if ( uf.components.get( cid ).size() >= targetSize && targetCount > 2 ) {
+                    //  finalize if large enough and no more expansion needed
+                    LOGGER.info( "finalize " + rep );
+                    next.remove( rep );
+                    break;
                 }
-            }
 
-            if ( maxCid < 0 ) {
-                //  no invalid clusters left, exit
-                LOGGER.info( "all done" );
+                Integer vid = iter.next();
+                LOGGER.info( "expand " + rep + " " + vid );
+
+                HashMap<Integer, Integer> prevIds = new HashMap<Integer, Integer>( uf.ids );
+                // LOGGER.info( prevIds );
+
+                uf.relocate( vid, rep );
+                LOGGER.info( uf.components );
+                // LOGGER.info( uf.edges );
+
+                if ( uf.components.size() == 2 ) {
+                    //  reached base case, can exit
+                    next.clear();
+                    LOGGER.info( "base exit" );
+                    break;
+                }
+
+                uf.mergeIsolated( rep );
+                LOGGER.info( uf.components );
+                // LOGGER.info( uf.edges );
+                // LOGGER.info( prevIds );
+
+                final int currSize = uf.find( rep ).size();
+
+                if ( currSize > 12 ) {
+                    //  expanded too far, revert merge
+                    uf.ids = prevIds;
+                    uf.updateComponents();
+                    LOGGER.info( "revert" );
+                    LOGGER.info( uf.components );
+                    //  try again by merging another adjacent block, if any
+                    continue;
+                }
+
+                //  continue by choosing current smallest cluster anew
                 break;
             }
 
-            HashSet<Integer> maxClust = uf.components.get( maxCid );
-            HashSet<BlockPos> maxPos = new HashSet<BlockPos>();
-
-            for ( Integer vid : maxClust ) {
-                maxPos.add( graph.verts[ vid ] );
+            if ( uf.components.size() == targetCount ) {
+                LOGGER.info( "target exit" );
+                break;
             }
-
-            Integer[] stableIds = graph.getStablePair( maxClust );
-            HashSet<Integer> clustA = findClosestSupport( maxPos, graph, stableIds[ 0 ] );
-            HashSet<Integer> clustB = findClosestSupport( maxPos, graph, stableIds[ 1 ] );
-            Integer repA = clustA.iterator().next();
-            Integer repB = clustB.iterator().next();
-
-            LOGGER.info( "processing " + repA + " / " + repB );
-
-            uf.extract( clustA );
-            uf.extract( clustB );
-            LOGGER.info( uf.components );
-            // LOGGER.info( uf.edges );
-
-            //  merge detached components
-
-            uf.mergeIsolated( repA, doneComps );
-            uf.mergeIsolated( repB, doneComps );
-            LOGGER.info( uf.components );
-            // LOGGER.info( uf.edges );
-
-            HashSet<Integer> next = new HashSet<>();
-            next.add( repA );
-            next.add( repB );
-
-            int sanityExit = 0;
-
-            while ( ! next.isEmpty() && sanityExit++ < 32 )
-            {
-                //  expand smallest cluster
-                Integer rep = next.stream().sorted( ( a, b ) -> uf.find( a ).size() - uf.find( b ).size() ).findFirst().get();
-                Integer cid = uf.ids.get( rep );
-                Iterator<Integer> iter = uf.iterateAdjacent( cid ).iterator();
-
-                // List<Integer> adjs = new ArrayList<>();
-                // uf.iterateAdjacent( cid ).forEach( adjs::add );
-                // LOGGER.info( adjs );
-                LOGGER.info( "process " + rep );
-
-                while ( iter.hasNext() && next.contains( rep ) )
-                {
-                    if ( uf.components.get( cid ).size() >= targetSize && targetCount > 2 ) {
-                        //  finalize if large enough and no more expansion needed
-                        LOGGER.info( "finalize " + rep );
-                        next.remove( rep );
-                        break;
-                    }
-
-                    Integer vid = iter.next();
-                    LOGGER.info( "expand " + rep + " " + vid );
-
-                    HashMap<Integer, Integer> prevIds = new HashMap<Integer, Integer>( uf.ids );
-                    // LOGGER.info( prevIds );
-
-                    uf.relocate( vid, rep );
-                    LOGGER.info( uf.components );
-                    // LOGGER.info( uf.edges );
-
-                    if ( uf.components.size() == 2 ) {
-                        //  reached base case, can exit
-                        next.clear();
-                        LOGGER.info( "base exit" );
-                        break;
-                    }
-
-                    uf.mergeIsolated( rep, doneComps );
-                    LOGGER.info( uf.components );
-                    // LOGGER.info( uf.edges );
-                    // LOGGER.info( prevIds );
-
-                    final int currSize = uf.find( rep ).size();
-
-                    if ( currSize > 12 ) {
-                        //  expanded too far, revert merge
-                        uf.ids = prevIds;
-                        uf.updateComponents();
-                        LOGGER.info( "revert" );
-                        LOGGER.info( uf.components );
-                        //  try again by merging another adjacent block, if any
-                        continue;
-                    }
-
-                    //  continue by choosing current smallest cluster anew
-                    break;
-                }
-
-                if ( uf.components.size() == targetCount ) {
-                    LOGGER.info( "target exit" );
-                    break;
-                }
-            }
-
-            doneComps.add( repA );
-            doneComps.add( repB );
         }
 
-        //  return two groups for viz
 
-        ArrayList<HashSet<BlockPos>> split = new ArrayList<>();
+        //  build block clusters
 
-        for ( HashSet<Integer> comp : uf.components ) {
+        final ArrayList<HashSet<BlockPos>> split = new ArrayList<>();
+
+        for ( HashSet<Integer> comp : uf.components )
+        {
+            HashSet<BlockPos> poss = new HashSet<>();
+
+            for ( Integer vid : comp ) {
+                poss.add( graph.verts[ vid ] );
+            }
+
+            split.add( poss );
+        }
+
+
+        //  split any leftover component recursively
+
+        uf.components.stream().filter( comp -> comp.size() > 12 ).forEach( comp ->
+        {
             HashSet<BlockPos> poss = new HashSet<>();
             for ( Integer vid : comp ) {
                 poss.add( graph.verts[ vid ] );
             }
-            split.add( poss );
-        }
+
+            ArrayList<HashSet<BlockPos>> remnants = split( poss );
+            split.addAll( remnants );
+        });
 
         return split;
     }
