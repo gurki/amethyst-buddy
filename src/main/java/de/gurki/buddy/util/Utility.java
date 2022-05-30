@@ -102,8 +102,25 @@ public class Utility
 
         final Block bud = Blocks.BUDDING_AMETHYST;
         final BlockState air = Blocks.AIR.getDefaultState();
+        final BlockState stone = Blocks.STONE.getDefaultState();
         final int m = Constants.kMargin;
         final int d = Constants.kDepth;
+
+        //  build stone walls to keep water out
+
+        BlockPos
+            .stream( boxMax.getX() + m, boxMin.getY() - m - 1, boxMin.getZ() - m - 1, boxMax.getX() + m + d + 1, boxMax.getY() + m + 1, boxMax.getZ() + m + 1 )
+            .forEach( p -> world.setBlockState( p, stone ) );
+
+        BlockPos
+            .stream( boxMin.getX() - m - 1, boxMax.getY() + m, boxMin.getZ() - m - 1, boxMax.getX() + m + 1, boxMax.getY() + m + d + 1, boxMax.getZ() + m + 1 )
+            .forEach( p -> world.setBlockState( p, stone ) );
+
+        BlockPos
+            .stream( boxMin.getX() - m - 1, boxMin.getY() - m - 1, boxMax.getZ() + m, boxMax.getX() + m + 1, boxMax.getY() + m + 1, boxMax.getZ() + m + d + 1 )
+            .forEach( p -> world.setBlockState( p, stone ) );
+
+        //  clear out all non-amethyst blocks in the area
 
         BlockPos
             .stream( boxMin.getX() - m, boxMin.getY() - m, boxMin.getZ() - m, boxMax.getX() + m + d, boxMax.getY() + m, boxMax.getZ() + m )
