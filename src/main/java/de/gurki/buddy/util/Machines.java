@@ -31,8 +31,23 @@ public class Machines
     {
         for ( Axis axis : Axis.values() ) {
             UnionFind uf = getClusters( geode, axis, world );
-            buildClusters( uf, world, axis, markOnly );
+            buildClusters( uf, geode, axis, world, markOnly );
         }
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public static void clearMarkers( Geode geode, Axis axis, World world )
+    {
+        final int mar = Constants.kMargin;
+        BlockPos boxMin = geode.min().add(-mar,-mar,-mar );
+        BlockPos boxMax = geode.max().add( mar, mar, mar);
+
+        final int off = Constants.kOffset;
+        BlockPos ll = boxMin.offset( axis, boxMax.getComponentAlongAxis( axis ) + off - mar + 1 - boxMin.getComponentAlongAxis( axis ) );
+        BlockPos tr = boxMax.offset( axis, off - mar + 1 );
+
+        BlockPos.iterate( ll, tr ).forEach( p -> world.setBlockState( p, Blocks.AIR.getDefaultState() ) );
     }
 
 
@@ -77,8 +92,10 @@ public class Machines
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static void buildClusters( UnionFind uf, World world, Axis axis, boolean markOnly )
+    public static void buildClusters( UnionFind uf, Geode geode, Axis axis, World world, boolean markOnly )
     {
+        clearMarkers( geode, axis, world );
+
         //  build flying machines per component
 
         for ( HashSet<Integer> comp : uf.components )
