@@ -8,7 +8,6 @@ import net.minecraft.util.math.Direction.AxisDirection;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
 import java.util.HashSet;
 import java.util.Iterator;
 

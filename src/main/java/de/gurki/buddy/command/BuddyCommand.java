@@ -1,14 +1,7 @@
 package de.gurki.buddy.command;
 
-import de.gurki.buddy.util.Clusters;
-import de.gurki.buddy.util.Constants;
-import de.gurki.buddy.util.Geode;
-import de.gurki.buddy.util.Graph;
-import de.gurki.buddy.util.UnionFind;
-import de.gurki.buddy.util.Utility;
-import de.gurki.buddy.util.Support;
+import de.gurki.buddy.util.*;
 
-import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.StructureBlockBlockEntity;
@@ -17,12 +10,10 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Direction.Axis;
-import net.minecraft.util.math.Direction.AxisDirection;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 
+import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
@@ -62,7 +53,12 @@ public class BuddyCommand
                 )
                 .then( CommandManager.literal( "clear" ).executes( context -> add( context, 0 ) ))
                 .then( CommandManager.literal( "tp" ).executes( BuddyCommand::tp ))
-                .then( CommandManager.literal( "machines" ).executes( BuddyCommand::machines ))
+                .then( CommandManager.literal( "machines" )
+                    .executes( context -> machines( context, false ) )
+                    .then( CommandManager.argument( "markOnly", BoolArgumentType.bool() )
+                        .executes( context -> machines( context, BoolArgumentType.getBool( context, "markOnly" )))
+                    )
+                )
                 .then( CommandManager.literal( "show" ).executes( context->setHighlight( context, true ) ))
                 .then( CommandManager.literal( "hide" ).executes( context->setHighlight( context, false ) ))
                 .then( CommandManager.literal( "project" ).executes( context -> run( context, 1 ) ))
@@ -92,25 +88,22 @@ public class BuddyCommand
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int add( CommandContext<ServerCommandSource> context, int count ) throws CommandSyntaxException {
-        geode_.addClosest( context.getSource().getPlayer().getBlockPos(), context.getSource().getWorld(), count );
-        return 1;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    public static int fly( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException
+    public static int add( CommandContext<ServerCommandSource> context, int count ) throws CommandSyntaxException
     {
-        ServerPlayerEntity player = context.getSource().getPlayer();
-        BlockPos center = player.getBlockPos();
-        Direction dir = player.getHorizontalFacing();
-        Utility.buildMachine( center, dir.rotateYCounterclockwise(), Direction.UP, Blocks.SLIME_BLOCK, context.getSource().getWorld() );
+        World world = context.getSource().getWorld();
+
+        if ( count == 0 ) {
+            geode_.clear( world );
+        } else {
+            geode_.addClosest( context.getSource().getPlayer().getBlockPos(), world, count );
+        }
+
         return 1;
     }
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int machines( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException
+    public static int machines( CommandContext<ServerCommandSource> context, boolean markOnly ) throws CommandSyntaxException
     {
         if ( geode_.isEmpty() ) {
             return 0;
@@ -118,74 +111,7 @@ public class BuddyCommand
 
         ServerCommandSource source = context.getSource();
         World world = source.getWorld();
-
-        final int mar = Constants.kMargin;
-        BlockPos boxMin = geode_.min().add(-mar,-mar,-mar );
-        BlockPos boxMax = geode_.max().add( mar, mar, mar);
-
-        final int off = Constants.kOffset;
-
-        //  build machines per plane
-
-        for ( Axis axis : Axis.values() )
-        {
-            //  collect honey and slime blocks
-
-            BlockPos ll = boxMin.offset( axis, boxMax.getComponentAlongAxis( axis ) + off - mar - boxMin.getComponentAlongAxis( axis ) );
-            BlockPos tr = boxMax.offset( axis, off - mar );
-
-            HashSet<BlockPos> positions = new HashSet<>();
-            ArrayList<HashSet<BlockPos>> components = new ArrayList<>();
-            components.add( new HashSet<>() );
-            components.add( new HashSet<>() );
-
-            for ( BlockPos p : BlockPos.iterate( ll, tr ) )
-            {
-                BlockState state = world.getBlockState( p );
-
-                if ( state.isOf( Blocks.SLIME_BLOCK ) ) {
-                    positions.add( p.toImmutable() );
-                    components.get( 0 ).add( p.toImmutable() );
-                } else if ( state.isOf( Blocks.HONEY_BLOCK ) ) {
-                    positions.add( p.toImmutable() );
-                    components.get( 1 ).add( p.toImmutable() );
-                }
-            }
-
-            Graph graph = new Graph( positions );
-            UnionFind uf = new UnionFind( graph );
-            uf.setComponents( components );
-
-            // LOGGER.info( uf.components );
-
-            //  build flying machines per component
-
-            for ( HashSet<Integer> comp : uf.components )
-            {
-                Integer repId = comp.iterator().next();
-                HashSet<BlockPos> cluster = new HashSet<>( comp.stream().map( i -> graph.verts[ i ] ).toList() );
-                Support support = Support.findClosestSupport( cluster, graph, repId );
-
-                if ( support.isEmpty() ) {
-                    LOGGER.info( "OH NO" );
-                    LOGGER.info( comp );
-                    LOGGER.info( support.seed );
-                    LOGGER.info( support.axis );
-                    continue;
-                }
-
-                BlockPos rep = graph.verts[ repId ];
-                Block block = components.get( 0 ).contains( rep ) ? Blocks.HONEY_BLOCK : Blocks.SLIME_BLOCK;
-
-                Utility.buildMachine(
-                    support.seed.offset( axis, 1 ),
-                    Direction.from( axis, AxisDirection.POSITIVE ),
-                    Direction.from( support.axis, AxisDirection.POSITIVE ),
-                    block,
-                    world
-                );
-            }
-        }
+        Machines.build( geode_, world, markOnly );
 
         return 1;
     }

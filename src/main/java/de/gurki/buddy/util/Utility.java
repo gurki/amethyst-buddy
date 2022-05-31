@@ -3,17 +3,15 @@ package de.gurki.buddy.util;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.StructureBlock;
 import net.minecraft.block.entity.StructureBlockBlockEntity;
 import net.minecraft.block.enums.StructureBlockMode;
+import net.minecraft.block.StructureBlock;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.registry.Registry;
-import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
-import net.minecraft.util.math.Direction;
-import net.minecraft.state.property.Properties;
+
 import static net.minecraft.block.Block.NOTIFY_LISTENERS;
 
 import org.apache.logging.log4j.LogManager;
@@ -24,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HashMap;
-import java.util.Optional;
 
 
 public class Utility
@@ -226,61 +223,5 @@ public class Utility
         structure.markDirty();
 
         return structure;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    //  with thanks adapted from kosma [1]
-    //  [1] https://github.com/kosma/geodesy-fabric/blob/master/src/main/java/pl/kosma/geodesy/GeodesyCore.java#L363
-    public static void buildMachine( BlockPos pos, Direction directionAlong, Direction directionUp, Block stickyBlock, World world ) {
-        /*
-         * It looks like this:
-         * S HHH
-         * S HVHH[<N
-         * SB[L>]SSSB
-         */
-        // Blocker block.
-        // world.setBlockState(blockerPos, Blocks.OBSIDIAN.getDefaultState(), NOTIFY_LISTENERS );
-        // Clear out the machine marker blocks.
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.AIR.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.AIR.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 2), Blocks.AIR.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 1);
-        // First layer: piston, 2 slime
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.STICKY_PISTON.getDefaultState().with(Properties.FACING, directionAlong.getOpposite()), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 2), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 1);
-        // Second layer: redstone lamp, observer, slime (order is important)
-        world.setBlockState(pos.offset(directionUp, 2), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.OBSERVER.getDefaultState().with(Properties.FACING, directionUp), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.REDSTONE_LAMP.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 1);
-        // Third layer: observer, slime, slime
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.OBSERVER.getDefaultState().with(Properties.FACING, directionAlong.getOpposite()), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 2), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 1);
-        // Fourth layer: piston, slime
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.STICKY_PISTON.getDefaultState().with(Properties.FACING, directionAlong), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 1);
-        // Fifth layer: slime, piston
-        world.setBlockState(pos.offset(directionUp, 0), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.STICKY_PISTON.getDefaultState().with(Properties.FACING, directionAlong.getOpposite()), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 2);
-        // [SKIP!] Seventh layer: slime, note block
-        world.setBlockState(pos.offset(directionUp, 0), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.NOTE_BLOCK.getDefaultState(), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, -1);
-        // [GO BACK!] Sixth layer: slime, observer
-        // This one is tricky, we initially set the observer in a wrong direction
-        // so the note block tune change is not triggered.
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.OBSERVER.getDefaultState().with(Properties.FACING, directionUp), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 0), stickyBlock.getDefaultState(), NOTIFY_LISTENERS );
-        world.setBlockState(pos.offset(directionUp, 1), Blocks.OBSERVER.getDefaultState().with(Properties.FACING, directionAlong), NOTIFY_LISTENERS );
-        pos = pos.offset(directionAlong, 2);
-        // [SKIP AGAIN!] Eighth layer: blocker
-        world.setBlockState(pos.offset(directionUp, 0), Blocks.CRYING_OBSIDIAN.getDefaultState(), NOTIFY_LISTENERS );
     }
 }
