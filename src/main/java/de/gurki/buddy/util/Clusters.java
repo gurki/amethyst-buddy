@@ -1,7 +1,6 @@
 package de.gurki.buddy.util;
 
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -11,9 +10,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.HashMap;
-import java.util.Queue;
-import java.util.LinkedList;
-import java.util.Optional;
 import java.util.Iterator;
 
 
@@ -211,48 +207,6 @@ public class Clusters
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static HashSet<BlockPos> findConnectedSupports( HashSet<BlockPos> cluster, BlockPos pos )
-    {
-        HashSet<BlockPos> res = new HashSet<>();
-        res.add( pos );
-
-        final BlockPos u = pos.offset( Direction.UP );
-        final BlockPos d = pos.offset( Direction.DOWN );
-
-        if ( cluster.contains( u ) && cluster.contains( d ) ) {
-            res.add( u );
-            res.add( d );
-            return res;
-        }
-
-        final BlockPos e = pos.offset( Direction.EAST );
-        final BlockPos w = pos.offset( Direction.WEST );
-
-        if ( cluster.contains( e ) && cluster.contains( w ) ) {
-            res.add( e );
-            res.add( w );
-            return res;
-        }
-
-        for ( Direction dir : List.of( Direction.UP, Direction.EAST, Direction.DOWN, Direction.WEST ) )
-        {
-            final BlockPos n1 = pos.offset( dir );
-            final BlockPos n2 = pos.offset( dir, 2 );
-
-            if ( ! cluster.contains( n1 ) || ! cluster.contains( n2 ) ) {
-                continue;
-            }
-
-            res.add( n1 );
-            res.add( n2 );
-            return res;
-        }
-
-        return res;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
     public static Validity validate( HashSet<BlockPos> cluster )
     {
         if ( cluster.size() < 4 ) {
@@ -267,7 +221,7 @@ public class Clusters
 
         for ( BlockPos pos : cluster )
         {
-            hasSupport = ( findConnectedSupports( cluster, pos ).size() == 3 );
+            hasSupport = ! Support.findConnectedSupports( cluster, pos ).isEmpty();
 
             if ( hasSupport ) {
                 break;
@@ -279,32 +233,6 @@ public class Clusters
         }
 
         return Validity.Valid;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    public static HashSet<Integer> findClosestSupport( HashSet<BlockPos> cluster, Graph graph, int startId )
-    {
-        Iterator<Integer> iter = graph.iterateBFS( startId ).iterator();
-        HashSet<BlockPos> support = null;
-        Integer vid = -1;
-
-        while ( iter.hasNext() )
-        {
-            vid = iter.next();
-            support = findConnectedSupports( cluster, graph.verts[ vid ] );
-
-            if ( support.size() == 3 ) {
-                break;
-            }
-        }
-
-        if ( support == null || support.isEmpty() ) {
-            return new HashSet<Integer>();
-        }
-
-        HashSet<Integer> supportIds = new HashSet<>( support.stream().map( p -> graph.ids.get( p ) ).toList() );
-        return supportIds;
     }
 
 
@@ -331,8 +259,8 @@ public class Clusters
         UnionFind uf = new UnionFind( graph );
 
         Integer[] stableIds = graph.getStablePair( uf.components.get( 0 ) );    //  graph vertex ids; single cluster at init
-        HashSet<Integer> clustA = findClosestSupport( cluster, graph, stableIds[ 0 ] );
-        HashSet<Integer> clustB = findClosestSupport( cluster, graph, stableIds[ 1 ] );
+        HashSet<Integer> clustA = Support.findClosestSupport( cluster, graph, stableIds[ 0 ] ).getIndices( graph );
+        HashSet<Integer> clustB = Support.findClosestSupport( cluster, graph, stableIds[ 1 ] ).getIndices( graph );
         Integer repA = clustA.iterator().next();
         Integer repB = clustB.iterator().next();
         HashSet<Integer> reps = new HashSet<>( List.of( repA, repB ) );
