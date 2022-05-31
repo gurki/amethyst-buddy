@@ -125,3 +125,12 @@ It also marks all the necessary blocks to cover.
 **`buddy machines`** actually generates the flying machines.
 
 <image src="screenshots/guide/11_machines.png" width=480>
+
+
+## Backlog
+- check for and remove [superfluent blocks](screenshots/2022-06-01_00.04.50.png) after merge
+- avoid choosing supports with conflicts
+  - not adjacent to [other block type](screenshots/2022-06-01_00.38.21.png)
+  - not adjacent to any [other support](screenshots/2022-05-31_23.10.49.png)
+- handle [infinite split](screenshots/2022-05-29_21.10.43.png)
+- handle [uncolorable](screenshots/2022-05-30_16.17.51.png) configurations
