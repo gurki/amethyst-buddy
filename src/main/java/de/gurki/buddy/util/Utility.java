@@ -10,6 +10,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.registry.Registry;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
 import net.minecraft.util.math.Direction;
 import net.minecraft.state.property.Properties;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.Optional;
 
 
 public class Utility
@@ -210,22 +212,20 @@ public class Utility
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static void highlightBox( BlockBox box, World world ) {
-        // Highlight the geode area.
-        int commandBlockOffset = 2+1;
-        BlockPos structureBlockPos = new BlockPos( box.getMinX()-commandBlockOffset, box.getMinY()-commandBlockOffset, box.getMinZ()-commandBlockOffset);
-        BlockState structureBlockState = Blocks.STRUCTURE_BLOCK.getDefaultState().with(StructureBlock.MODE, StructureBlockMode.SAVE);
-        world.setBlockState(structureBlockPos, structureBlockState, NOTIFY_LISTENERS);
+    public static StructureBlockBlockEntity highlightBox( BlockBox box, World world )
+    {
+        int commandBlockOffset = 1;
+        BlockPos structureBlockPos = new BlockPos( box.getMinX() - commandBlockOffset, box.getMinY() - commandBlockOffset, box.getMinZ() - commandBlockOffset );
+        BlockState structureBlockState = Blocks.STRUCTURE_BLOCK.getDefaultState().with( StructureBlock.MODE, StructureBlockMode.SAVE );
+        world.setBlockState( structureBlockPos, structureBlockState, NOTIFY_LISTENERS );
         StructureBlockBlockEntity structure = (StructureBlockBlockEntity) world.getBlockEntity(structureBlockPos);
-        if (structure == null) {
-            LOGGER.error("StructureBlock tile entity is missing... this should never happen????");
-            return;
-        }
-        structure.setStructureName("box");
-        structure.setOffset(new BlockPos(commandBlockOffset, commandBlockOffset, commandBlockOffset));
-        structure.setSize(box.getDimensions().add(1, 1, 1));
-        structure.setShowBoundingBox(true);
+
+        structure.setOffset( new BlockPos( commandBlockOffset, commandBlockOffset, commandBlockOffset ) );
+        structure.setSize( box.getDimensions().add( 1, 1, 1 ) );
+        structure.setShowBoundingBox( true );
         structure.markDirty();
+
+        return structure;
     }
 
 

@@ -2,11 +2,14 @@ package de.gurki.buddy.command;
 
 import de.gurki.buddy.util.Graph;
 import de.gurki.buddy.util.UnionFind;
+import de.gurki.buddy.util.Geode;
 
 import net.minecraft.server.command.CommandManager;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.World;
+import net.minecraft.util.math.BlockBox;
 import net.minecraft.util.math.BlockPos;
 // import net.minecraft.util.math.Direction.Axis;
 // import net.minecraft.block.Block;
@@ -18,6 +21,8 @@ import net.minecraft.util.registry.Registry;
 import net.minecraft.util.Identifier;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.math.Direction;
+import net.minecraft.block.entity.StructureBlockBlockEntity;
+import net.minecraft.block.entity.BlockEntity;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
@@ -29,7 +34,6 @@ import org.apache.logging.log4j.Logger;
 import de.gurki.buddy.util.Clusters;
 import de.gurki.buddy.util.Constants;
 import de.gurki.buddy.util.Utility;
-
 import java.util.List;
 import java.util.Map;
 // import java.lang.reflect.Array;
@@ -48,9 +52,8 @@ public class BuddyCommand
     public static final String MOD_ID = "de.gurki.buddy";
 	public static final Logger LOGGER = LogManager.getLogger( MOD_ID );
 
-    public static BlockPos center_ = null;
-    public static BlockPos boxMin_ = null;
-    public static BlockPos boxMax_ = null;
+    public static Geode geode_ = new Geode();
+    public static StructureBlockBlockEntity structure_ = null;
 
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -59,10 +62,16 @@ public class BuddyCommand
         dispatcher.register(
             CommandManager.literal( "buddy" )
                 .executes( context -> run( context, 0 ) )
-                .then( CommandManager.literal( "test" ).executes( BuddyCommand::test ))
-                .then( CommandManager.literal( "init" ).executes( BuddyCommand::init ))
+                .then( CommandManager.literal( "init" )
+                    .executes( context -> init( context, 5 ) )
+                    .then( CommandManager.argument("range", IntegerArgumentType.integer( 0 ) )
+                        .executes( context -> init( context, IntegerArgumentType.getInteger( context, "range" ) ))
+                    )
+                )
                 .then( CommandManager.literal( "tp" ).executes( BuddyCommand::tp ))
                 .then( CommandManager.literal( "fly" ).executes( BuddyCommand::fly ))
+                .then( CommandManager.literal( "show" ).executes( context->setHighlight( context, true ) ))
+                .then( CommandManager.literal( "hide" ).executes( context->setHighlight( context, false ) ))
                 .then( CommandManager.literal( "project" ).executes( context -> run( context, 1 ) ))
                 .then( CommandManager.literal( "cluster" ).executes( context -> run( context, 2 ) ))
                 .then( CommandManager.literal( "connect" ).executes( context -> run( context, 3 ) ))
@@ -75,6 +84,12 @@ public class BuddyCommand
         );
     }
 
+    ////////////////////////////////////////////////////////////////////////////////
+    public static int setHighlight( CommandContext<ServerCommandSource> context, boolean show ) throws CommandSyntaxException {
+        geode_.setHighlight( show, context.getSource().getWorld() );
+        return 1;
+    }
+
 
     ////////////////////////////////////////////////////////////////////////////////
     public static int tp( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException {
@@ -84,25 +99,12 @@ public class BuddyCommand
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int test( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException
+    public static int init( CommandContext<ServerCommandSource> context, int count ) throws CommandSyntaxException
     {
-        HashSet<BlockPos> blocks = new HashSet<>();
-        blocks.add( new BlockPos( 0, 0, 0 ) );
-        blocks.add( new BlockPos( 1, 0, 0 ) );
-        blocks.add( new BlockPos( 2, 0, 0 ) );
-        blocks.add( new BlockPos( 1, 1, 0 ) );
-
-        Graph graph = new Graph( blocks );
-
-        LOGGER.info( List.of( graph.verts ) );
-        LOGGER.info( graph.edges );
-        LOGGER.info( "iterateBFS" );
-
-        Iterator<Integer> iter = graph.iterateBFS( 0, i -> i % 2 == 0 ).iterator();
-
-        while ( iter.hasNext() ) {
-            Integer v = iter.next();
-            LOGGER.info( "vert: " + v );
+        if ( count > 0 ) {
+            geode_.addClosest( context.getSource().getPlayer().getBlockPos(), context.getSource().getWorld(), count );
+        } else {
+            geode_.clear( context.getSource().getWorld() );
         }
 
         return 1;
@@ -121,14 +123,6 @@ public class BuddyCommand
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int init( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException {
-        center_ = context.getSource().getPlayer().getBlockPos();
-        context.getSource().sendFeedback( new LiteralText( "Set center to " + center_.toString() ), false );
-        return 1;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
     public static int run( CommandContext<ServerCommandSource> context, int mode ) throws CommandSyntaxException
     {
         final BlockState obsidian = Blocks.OBSIDIAN.getDefaultState();
@@ -142,16 +136,16 @@ public class BuddyCommand
         ServerPlayerEntity player = source.getPlayer();
         World world = source.getWorld();
 
-        if ( center_ == null || mode <= 0 ) {
-            center_ = player.getBlockPos();
+        if ( geode_.isEmpty() ) {
+            geode_.addClosest( player.getBlockPos(), world, 5 );
         }
 
-        List<BlockPos> minMax = Utility.computeBoundingBox( center_, world );
-        boxMin_ = minMax.get( 0 );
-        boxMax_ = minMax.get( 1 );
+        BlockPos boxMin = geode_.min();
+        BlockPos boxMax = geode_.max();
+        Utility.clearArea( boxMin, boxMax, world );
+        Utility.generateBackside( boxMin, boxMax, world );
 
-        Utility.clearArea( boxMin_, boxMax_, world );
-        Utility.generateBackside( boxMin_, boxMax_, world );
+        geode_.setHighlight( true, world );
 
         if ( mode == 0 ) {
             return 1;
@@ -159,7 +153,7 @@ public class BuddyCommand
 
         //  project buds
 
-        List<HashSet<BlockPos>> projs = Utility.projectBuds( boxMin_, boxMax_, world );
+        List<HashSet<BlockPos>> projs = Utility.projectBuds( boxMin, boxMax, world );
 
         projs.get( 0 ).forEach( p -> world.setBlockState( p, obsidian ));
         projs.get( 1 ).forEach( p -> world.setBlockState( p, obsidian ));
@@ -181,7 +175,7 @@ public class BuddyCommand
         List<List<BlockPos>> conts = List.of( contX, contY, contZ );
 
         final int off = Constants.kOffset;
-        final int[] offs = { boxMax_.getX() + off, boxMax_.getY() + off, boxMax_.getZ() + off };
+        final int[] offs = { boxMax.getX() + off, boxMax.getY() + off, boxMax.getZ() + off };
 
         for ( int dim = 0; dim < 3; dim++ ) {
             final int currDim = dim;
