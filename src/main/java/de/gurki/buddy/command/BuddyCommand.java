@@ -1,50 +1,38 @@
 package de.gurki.buddy.command;
 
+import de.gurki.buddy.util.Clusters;
+import de.gurki.buddy.util.Constants;
+import de.gurki.buddy.util.Geode;
 import de.gurki.buddy.util.Graph;
 import de.gurki.buddy.util.UnionFind;
-import de.gurki.buddy.util.Geode;
+import de.gurki.buddy.util.Utility;
 
+import net.minecraft.block.Blocks;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.StructureBlockBlockEntity;
 import net.minecraft.server.command.CommandManager;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.world.World;
-import net.minecraft.util.math.BlockBox;
-import net.minecraft.util.math.BlockPos;
-// import net.minecraft.util.math.Direction.Axis;
-// import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Block;
-import net.minecraft.block.Blocks;
-// import net.minecraft.predicate.NumberRange.IntRange;
-import net.minecraft.util.registry.Registry;
 import net.minecraft.util.Identifier;
-import net.minecraft.text.LiteralText;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
-import net.minecraft.block.entity.StructureBlockBlockEntity;
-import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.util.registry.Registry;
+import net.minecraft.world.World;
 
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
-import de.gurki.buddy.util.Clusters;
-import de.gurki.buddy.util.Constants;
-import de.gurki.buddy.util.Utility;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-// import java.lang.reflect.Array;
-import java.util.ArrayList;
-// import java.util.Collection;
-// import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.Iterator;
 
 
 public class BuddyCommand
@@ -62,12 +50,13 @@ public class BuddyCommand
         dispatcher.register(
             CommandManager.literal( "buddy" )
                 .executes( context -> run( context, 0 ) )
-                .then( CommandManager.literal( "init" )
-                    .executes( context -> init( context, 5 ) )
+                .then( CommandManager.literal( "add" )
+                    .executes( context -> add( context, 5 ) )
                     .then( CommandManager.argument("range", IntegerArgumentType.integer( 0 ) )
-                        .executes( context -> init( context, IntegerArgumentType.getInteger( context, "range" ) ))
+                        .executes( context -> add( context, IntegerArgumentType.getInteger( context, "range" ) ))
                     )
                 )
+                .then( CommandManager.literal( "clear" ).executes( context -> add( context, 0 ) ))
                 .then( CommandManager.literal( "tp" ).executes( BuddyCommand::tp ))
                 .then( CommandManager.literal( "fly" ).executes( BuddyCommand::fly ))
                 .then( CommandManager.literal( "show" ).executes( context->setHighlight( context, true ) ))
@@ -75,14 +64,14 @@ public class BuddyCommand
                 .then( CommandManager.literal( "project" ).executes( context -> run( context, 1 ) ))
                 .then( CommandManager.literal( "cluster" ).executes( context -> run( context, 2 ) ))
                 .then( CommandManager.literal( "connect" ).executes( context -> run( context, 3 ) ))
-                .then( CommandManager.literal( "validate" ).executes( context -> run( context, 4 ) ))
+                .then( CommandManager.literal( "validateConnect" ).executes( context -> run( context, 4 ) ))
                 .then( CommandManager.literal( "merge" ).executes( context -> run( context, 5 ) ))
                 .then( CommandManager.literal( "split" ).executes( context -> run( context, 6 ) ))
                 .then( CommandManager.literal( "validateSplit" ).executes( context -> run( context, 7 ) ))
                 .then( CommandManager.literal( "colorize" ).executes( context -> run( context, 8 ) ))
-                .then( CommandManager.literal( "explore" ).executes( context -> run( context, -1 ) ))
         );
     }
+
 
     ////////////////////////////////////////////////////////////////////////////////
     public static int setHighlight( CommandContext<ServerCommandSource> context, boolean show ) throws CommandSyntaxException {
@@ -99,14 +88,8 @@ public class BuddyCommand
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int init( CommandContext<ServerCommandSource> context, int count ) throws CommandSyntaxException
-    {
-        if ( count > 0 ) {
-            geode_.addClosest( context.getSource().getPlayer().getBlockPos(), context.getSource().getWorld(), count );
-        } else {
-            geode_.clear( context.getSource().getWorld() );
-        }
-
+    public static int add( CommandContext<ServerCommandSource> context, int count ) throws CommandSyntaxException {
+        geode_.addClosest( context.getSource().getPlayer().getBlockPos(), context.getSource().getWorld(), count );
         return 1;
     }
 
