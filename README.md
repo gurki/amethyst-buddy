@@ -41,6 +41,7 @@ The `buddy colorize` command can also be run in stages up to a certain point.
 This is mostly for debugging purposes and the curious.
 Here's a step by step guide.
 
+
 ## Guide
 
 ### 0. Find your Geode
@@ -56,6 +57,9 @@ You can add multiple geodes to your bounding box by moving closer to a neighbour
 
 You can clear the bounding box using `buddy clear`.
 
+You can show or hide the current bounding box using `buddy show` and `buddy hide`.
+The bounding box can also be cleared by breaking the structure block at the far down corner.
+
 <image src="screenshots/guide/01_add.png" width=480>
 
 
@@ -70,6 +74,7 @@ It also marks all the necessary blocks to cover.
 **`buddy cluster`** finds and connects isolated blocks that can be joined to some cluster by adding a single block.
 
 <image src="screenshots/guide/03_cluster.png" width=480>
+
 
 ### 4. Connect
 **`buddy connect`** finds and connects invalid clusters that can be joined by adding a single block.
