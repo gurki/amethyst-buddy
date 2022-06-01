@@ -79,7 +79,7 @@ public class Machines
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static ArrayList<Support> readMarkers( Geode geode, Axis axis, World world )
+    public static ArrayList<Support> readMarkers( UnionFind uf, Geode geode, Axis axis, World world )
     {
         final int mar = Constants.kMargin;
         BlockPos boxMin = geode.min().add(-mar,-mar,-mar );
@@ -99,22 +99,30 @@ public class Machines
             .toList()
         );
 
-        LOGGER.info( markers );
         ArrayList<Support> supports = new ArrayList<>();
-        HashSet<BlockPos> done = new HashSet<>();
+        HashSet<Integer> doneCompIds = new HashSet<Integer>();
 
         for ( BlockPos p : markers )
         {
-            if ( done.contains( p ) ) {
+            BlockPos rep = p.offset( axis, -1 );
+            Integer compId = uf.ids.get( uf.graph.ids.get( rep ) );
+
+            if ( doneCompIds.contains( compId ) ) {
                 continue;
             }
 
-            Support support = Support.findConnectedSupports( markers, p );
+            HashSet<BlockPos> compMarkers = new HashSet<>( markers
+                .stream()
+                .filter( pos -> uf.ids.get( uf.graph.ids.get( pos.offset( axis, -1 ) ) ) == compId )
+                .toList()
+            );
+
+            Support support = Support.findConnectedSupports( compMarkers, p );
 
             if ( ! support.isEmpty() ) {
-                done.addAll( support.getPositions() );
                 support.seed = support.seed.offset( axis,-1 );
                 supports.add( support );
+                doneCompIds.add( compId );
             }
         }
 
@@ -198,7 +206,7 @@ public class Machines
     {
         //  build flying machine for each marked support
 
-        ArrayList<Support> supports = readMarkers( geode, axis, world );
+        ArrayList<Support> supports = readMarkers( uf, geode, axis, world );
         clearMarkers( geode, axis, world );
 
         for ( Support support : supports )
