@@ -48,7 +48,7 @@ public class Support
     ////////////////////////////////////////////////////////////////////////////////
     public static Support findClosestSupport( HashSet<BlockPos> cluster, Graph graph, int startId )
     {
-        Iterator<Integer> iter = graph.iterateBFS( startId ).iterator();
+        Iterator<Integer> iter = graph.iterateBFS( startId, i -> cluster.contains( graph.verts[ i ] )  ).iterator();
         Support support = null;
         Integer vid = -1;
 

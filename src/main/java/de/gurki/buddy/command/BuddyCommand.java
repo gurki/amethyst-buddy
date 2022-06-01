@@ -1,7 +1,7 @@
 package de.gurki.buddy.command;
 
 import de.gurki.buddy.util.*;
-
+import de.gurki.buddy.util.Machines.BuildMode;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.StructureBlockBlockEntity;
@@ -10,6 +10,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 
@@ -36,7 +37,6 @@ public class BuddyCommand
 	public static final Logger LOGGER = LogManager.getLogger( MOD_ID );
 
     public static Geode geode_ = new Geode();
-    public static StructureBlockBlockEntity structure_ = null;
 
 
     ////////////////////////////////////////////////////////////////////////////////
@@ -52,12 +52,11 @@ public class BuddyCommand
                     )
                 )
                 .then( CommandManager.literal( "clear" ).executes( context -> add( context, 0 ) ))
-                .then( CommandManager.literal( "tp" ).executes( BuddyCommand::tp ))
                 .then( CommandManager.literal( "machines" )
-                    .executes( context -> machines( context, false ) )
-                    .then( CommandManager.argument( "markOnly", BoolArgumentType.bool() )
-                        .executes( context -> machines( context, BoolArgumentType.getBool( context, "markOnly" )))
-                    )
+                    .executes( context -> machines( context, BuildMode.MarkAndBuild ) )
+                    .then( CommandManager.literal( "markOnly" ).executes( context -> machines( context, BuildMode.MarkOnly ) ))
+                    .then( CommandManager.literal( "markAndBuild" ).executes( context -> machines( context, BuildMode.MarkAndBuild ) ))
+                    .then( CommandManager.literal( "readAndBuild" ).executes( context -> machines( context, BuildMode.ReadAndBuild ) ))
                 )
                 .then( CommandManager.literal( "show" ).executes( context->setHighlight( context, true ) ))
                 .then( CommandManager.literal( "hide" ).executes( context->setHighlight( context, false ) ))
@@ -69,20 +68,25 @@ public class BuddyCommand
                 .then( CommandManager.literal( "split" ).executes( context -> run( context, 6 ) ))
                 .then( CommandManager.literal( "validateSplit" ).executes( context -> run( context, 7 ) ))
                 .then( CommandManager.literal( "colorize" ).executes( context -> run( context, 8 ) ))
+                .then( CommandManager.literal( "fly" ).then( CommandManager.argument( "slime", BoolArgumentType.bool() ).executes(
+                    context -> fly( context, BoolArgumentType.getBool( context, "slime" ))
+                )))
         );
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////////
+    public static int fly( CommandContext<ServerCommandSource> context, boolean slime ) throws CommandSyntaxException
+    {
+        ServerPlayerEntity player = context.getSource().getPlayer();
+        Machines.buildAt( player.getBlockPos(), player.getHorizontalFacing(), Direction.UP, slime ? Blocks.SLIME_BLOCK : Blocks.HONEY_BLOCK, context.getSource().getWorld() );
+        return 1;
     }
 
 
     ////////////////////////////////////////////////////////////////////////////////
     public static int setHighlight( CommandContext<ServerCommandSource> context, boolean show ) throws CommandSyntaxException {
         geode_.setHighlight( show, context.getSource().getWorld() );
-        return 1;
-    }
-
-
-    ////////////////////////////////////////////////////////////////////////////////
-    public static int tp( CommandContext<ServerCommandSource> context ) throws CommandSyntaxException {
-        context.getSource().getPlayer().teleport( context.getSource().getWorld(), -734, 14.5, -254, 90, 0 );
         return 1;
     }
 
@@ -103,7 +107,7 @@ public class BuddyCommand
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public static int machines( CommandContext<ServerCommandSource> context, boolean markOnly ) throws CommandSyntaxException
+    public static int machines( CommandContext<ServerCommandSource> context, BuildMode mode ) throws CommandSyntaxException
     {
         if ( geode_.isEmpty() ) {
             return 0;
@@ -111,7 +115,7 @@ public class BuddyCommand
 
         ServerCommandSource source = context.getSource();
         World world = source.getWorld();
-        Machines.build( geode_, world, markOnly );
+        Machines.build( geode_, world, mode );
 
         return 1;
     }

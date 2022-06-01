@@ -36,13 +36,23 @@ public class Geode
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public BlockPos min() {
+    public BlockPos min()
+    {
+        if ( box_ == null ) {
+            return new BlockPos( 0, 0, 0 );
+        }
+
         return new BlockPos( box_.getMinX(), box_.getMinY(), box_.getMinZ() );
     }
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public BlockPos max() {
+    public BlockPos max()
+    {
+        if ( box_ == null ) {
+            return new BlockPos( 0, 0, 0 );
+        }
+
         return new BlockPos( box_.getMaxX(), box_.getMaxY(), box_.getMaxZ() );
     }
 
@@ -50,6 +60,10 @@ public class Geode
     ////////////////////////////////////////////////////////////////////////////////
     public void setHighlight( boolean show, World world )
     {
+        if ( isEmpty() ) {
+            return;
+        }
+
         BlockPos pos = min().add( -1, -1, -1 );
 
         if ( ! show ) {
@@ -67,7 +81,12 @@ public class Geode
 
 
     ////////////////////////////////////////////////////////////////////////////////
-    public void clear( World world ) {
+    public void clear( World world )
+    {
+        if ( box_ == null ) {
+            return;
+        }
+
         setHighlight( false, world );
         box_ = null;
     }
