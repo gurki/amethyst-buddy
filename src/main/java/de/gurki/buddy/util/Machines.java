@@ -15,7 +15,6 @@ import static net.minecraft.block.Block.NOTIFY_LISTENERS;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 
-import java.util.List;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.function.Predicate;
@@ -113,8 +112,8 @@ public class Machines
             Support support = Support.findConnectedSupports( markers, p );
 
             if ( ! support.isEmpty() ) {
-                support.seed = support.seed.offset( axis,-1 );
                 done.addAll( support.getPositions() );
+                support.seed = support.seed.offset( axis,-1 );
                 supports.add( support );
             }
         }
